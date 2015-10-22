@@ -1,0 +1,122 @@
+---
+title: "Geography of Independent Pharmacies Using RxWiki"
+author: "Hunter Ratliff (hunter@rxwiki.com)"
+date: "October 21, 2015"
+output: html_document
+---
+
+```{r cite}
+citation = function ()
+{
+  require(grid)
+  require(gridExtra)
+  grid.text("www.RxWiki.com | 2015",
+            x = unit(0.97, "npc"), y = unit(0.03, "npc"), just = c("right", "bottom"), 
+            gp = gpar(fontface = "bold", fontsize = 14, col = "grey"))
+  grid.text("Hunter Ratliff | hunter@rxwiki.com",
+            x = unit(0.03, "npc"), y = unit(0.03, "npc"), just = c("left", "bottom"), 
+            gp = gpar(fontsize = 10, col = "grey"))
+#   grid.text("2015-10-21",
+#             x = unit(0.03, "npc"), y = unit(0.97, "npc"), just = c("left", "top"), 
+#             gp = gpar(fontsize = 12, col = "grey"))
+}
+
+
+```
+
+```{r, collapse=TRUE, include=FALSE}
+## Required packages
+sapply(c("httr", "jsonlite", "dplyr", "magrittr", "lubridate", "tidyr", "reshape2", "ggplot2", "ggmap", "ggthemes", "grid", "gridExtra", "stringi"), require, character.only=TRUE) 
+
+# setwd("~/Google Drive/100 - Publicly hosted/rootR/RxWiki/geo")
+## Read in the data frame & process it
+df <- read.csv("data/Geo.csv")
+
+# Make altercations
+df = mutate(df, 
+            Billing.State   = stri_trans_toupper(Billing.State),
+            Billing.City    = stri_trans_totitle(Billing.City),
+            Date.Subscribed = as.Date(mdy(Date.Subscribed)),
+            mon             = month(Date.Subscribed, label = T),
+            Subscription.Fee = gsub(pattern = "\\$", replacement = "", x = Subscription.Fee))
+
+
+## Geo-code things
+require(zipcode)
+data(zipcode) # Load zipcode table
+
+# Clean zip codes
+df$zip <- clean.zipcodes(df$Billing.Postal.Code)
+
+## Join our dataframe with the zipcode table 
+geodata = inner_join(df, zipcode) %>% select(-starts_with("Billing"))
+
+# Re-create factors
+geodata$state <- factor(geodata$state)
+geodata$city  <- factor(geodata$city)
+geodata$Subscription.Fee <- as.integer(geodata$Subscription.Fee)
+```
+
+# Preview Data  
+Here's our data frame
+
+```{r}
+head(geodata)
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+# Define map object
+USA = qmap(location = "United States", zoom=4, maptype = "toner-lite", source = "stamen")
+```
+
+### Map #1
+
+```{r Map1, collapse=TRUE, fig.align='center', fig.height=10, fig.width=10}
+## Map 1
+USA + geom_jitter(aes(x = longitude, y = latitude, color=Twitter), alpha = 0.3, data = geodata) + theme_map() + ggtitle("Who has a Twitter?")
+citation()
+```
+
+### Map #2
+
+```{r Map2, collapse=TRUE, fig.align='center', fig.height=10, fig.width=10}
+## Map 2
+USA + geom_jitter(aes(x = longitude, y = latitude, color=Account.Category), alpha = 0.5, data = geodata) + theme_map() + ggtitle("Geography By Account Category")  
+citation()
+```
+
+### Map #3
+
+```{r Map3, collapse=TRUE, fig.align='center', fig.height=10, fig.width=10}
+## Map 3
+USA + geom_jitter(aes(x = longitude, y = latitude, color=Subscription.Opportunity), alpha = 0.5, data = geodata) + theme_excel() 
+citation()
+```
+
+### Map #4
+
+```{r Map4, collapse=TRUE,  fig.align='center', fig.height=10, fig.width=10}
+## Map 4
+USA + geom_jitter(aes(x = longitude, y = latitude, color=mon), alpha = 0.5, data = geodata) + theme_excel()
+citation()
+```
+
+### Map #5
+
+```{r Map5, collapse=TRUE, fig.align='center', fig.height=16, fig.width=16}
+## Map 5
+USA + geom_jitter(aes(x = longitude, y = latitude, color=mon), alpha = 0.5, data = geodata) + theme_excel()+ facet_wrap("Subscription.Opportunity")
+citation()
+```
+
+### Map #6
+
+```{r Map6, collapse=TRUE, fig.align='center', fig.height=10, fig.width=10}
+## Map 6
+USA + stat_density2d(aes(x = longitude, y = latitude), geom = "contour", data = geodata, alpha=.8, color=I("#F05B49")) + 
+  stat_density2d(aes(x = longitude, y = latitude), geom = "polygon", data = geodata, alpha=.18) + 
+  # stat_density2d(aes(x = longitude, y = latitude), geom = "point", data = geodata, alpha=.15) + 
+  geom_jitter(aes(x = longitude, y = latitude), alpha = 0.18, data = geodata, color=I("#00A2A0")) + theme_map() + ggtitle("Independent pharmacies utilizing RxWiki")
+citation()
+```
